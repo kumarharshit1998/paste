@@ -1,0 +1,47 @@
+AccrStat = reader["HOLD"].ToString(),
+CostCtr = reader["M_CONTROL1"].ToString() + reader["RPT_BR_NO"].ToString(),
+Approvoff = reader["OFF_NUM"].ToString(),
+RelMgr = reader["OFF_NUM"].ToString(),
+CollCode = reader["COLL"].ToString(),
+CurrIntRate = decimal.TryParse(reader["RATE_P"].ToString(), out var rate) ? (rate * 100).ToString() : "0",
+MatDate = FormatDate(reader["MAT_DTE"].ToString()),
+LateChargesUNP = reader["UNPAID_LCHRGS"].ToString(),
+OthrChargesUNP = reader["UNPAID_OTH_CHRG"].ToString(),
+LineAmt = reader["ORG"].ToString(),
+LineMargin = reader["PRIME_RELATION"].ToString(),
+LoanLine = reader["REV"].ToString() == "1" ? "Line" : "Loan",
+OrigNoteDte = FormatDate(reader["NOTE_DTE"].ToString()),
+PayOff = reader["M_PO_AMOUNT"].ToString(),
+CurDueDte = FormatDate(reader["DUE_DTE_P"].ToString()),
+CurrPmt = reader["DUE_PRIN"].ToString(),
+SchedPmt = reader["PAYMENT"].ToString(),
+DPD = reader["M_DAYS_PAST_DUE"].ToString(),
+OrigTerm = reader["ORG_TERM"].ToString(),
+PastDue = reader["M_AMT_PAST_DUE"].ToString(),
+PayDueDte = reader["BILL_DAY"].ToString(),
+PaysMadeNum = reader["NO_PMTS_PDUE"].ToString(),
+ProdCode = reader["M_PRODUCT_CODE"].ToString(),
+HSTAcctNum = reader["M_AUXILIARY_SEARCH"].ToString(),
+OrigIntRate = decimal.TryParse(reader["M_ORG_RATE"].ToString(), out var origRate) ? (origRate * 100).ToString() : "0",
+OrigMatDate = FormatDate(reader["M_ORG_MAT_DTE"].ToString()),
+OrigCredScor = reader["M_CS_APPL_SCORE"].ToString(),
+DPD10 = reader["NTD_10_29"].ToString(),
+DPD30 = reader["NTD_30_59"].ToString(),
+DPD60 = reader["NTD_60_89"].ToString(),
+DPD90 = reader["NTD_90"].ToString(),
+ChargeOffAmt = reader["M_ACB_CHARGE_OFF_AMT"].ToString(),
+OrigDTI = reader["M_UF_NUM5_1"].ToString(),
+OrigLTV = reader["M_UF_NUM3_1"].ToString(),
+OrigPropVal = reader["M_UF_NUM72_2"].ToString(),
+LoanSrcCd = reader["M_UF_ALPHA1_8"].ToString()
+
+
+
+private string FormatDate(string raw)
+{
+    if (!string.IsNullOrWhiteSpace(raw) && raw.Length == 8 && DateTime.TryParseExact(raw, "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out var date))
+    {
+        return date.ToString("MM/dd/yyyy");
+    }
+    return "00/00/0000";
+}
