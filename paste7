@@ -1,47 +1,30 @@
-AccrStat = reader["HOLD"].ToString(),
-CostCtr = reader["M_CONTROL1"].ToString() + reader["RPT_BR_NO"].ToString(),
-Approvoff = reader["OFF_NUM"].ToString(),
-RelMgr = reader["OFF_NUM"].ToString(),
-CollCode = reader["COLL"].ToString(),
-CurrIntRate = decimal.TryParse(reader["RATE_P"].ToString(), out var rate) ? (rate * 100).ToString() : "0",
-MatDate = FormatDate(reader["MAT_DTE"].ToString()),
-LateChargesUNP = reader["UNPAID_LCHRGS"].ToString(),
-OthrChargesUNP = reader["UNPAID_OTH_CHRG"].ToString(),
-LineAmt = reader["ORG"].ToString(),
-LineMargin = reader["PRIME_RELATION"].ToString(),
-LoanLine = reader["REV"].ToString() == "1" ? "Line" : "Loan",
-OrigNoteDte = FormatDate(reader["NOTE_DTE"].ToString()),
-PayOff = reader["M_PO_AMOUNT"].ToString(),
-CurDueDte = FormatDate(reader["DUE_DTE_P"].ToString()),
-CurrPmt = reader["DUE_PRIN"].ToString(),
-SchedPmt = reader["PAYMENT"].ToString(),
-DPD = reader["M_DAYS_PAST_DUE"].ToString(),
-OrigTerm = reader["ORG_TERM"].ToString(),
-PastDue = reader["M_AMT_PAST_DUE"].ToString(),
-PayDueDte = reader["BILL_DAY"].ToString(),
-PaysMadeNum = reader["NO_PMTS_PDUE"].ToString(),
-ProdCode = reader["M_PRODUCT_CODE"].ToString(),
-HSTAcctNum = reader["M_AUXILIARY_SEARCH"].ToString(),
-OrigIntRate = decimal.TryParse(reader["M_ORG_RATE"].ToString(), out var origRate) ? (origRate * 100).ToString() : "0",
-OrigMatDate = FormatDate(reader["M_ORG_MAT_DTE"].ToString()),
-OrigCredScor = reader["M_CS_APPL_SCORE"].ToString(),
-DPD10 = reader["NTD_10_29"].ToString(),
-DPD30 = reader["NTD_30_59"].ToString(),
-DPD60 = reader["NTD_60_89"].ToString(),
-DPD90 = reader["NTD_90"].ToString(),
-ChargeOffAmt = reader["M_ACB_CHARGE_OFF_AMT"].ToString(),
-OrigDTI = reader["M_UF_NUM5_1"].ToString(),
-OrigLTV = reader["M_UF_NUM3_1"].ToString(),
-OrigPropVal = reader["M_UF_NUM72_2"].ToString(),
-LoanSrcCd = reader["M_UF_ALPHA1_8"].ToString()
+public async Task InsertAutoFillAsync(SHAWAutofillModel m)
+        {
+            // 1) Create & open connection
+            await using var conn = new SqlConnection(_connStr);
+            await conn.OpenAsync();
 
+            // 2) Create command
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText  = "usp_LMG_InsertSHAWAutoFill";   // your proc name
+            cmd.CommandType  = CommandType.StoredProcedure;
 
+            // 3) Add parameters (12 total here – adjust as needed)
+            cmd.Parameters.Add("@AccountNum",      SqlDbType.VarChar, 20).Value = m.AccountNumber      ?? (object)DBNull.Value;
+            cmd.Parameters.Add("@AccrStat",        SqlDbType.VarChar, 10).Value = m.AccrStat           ?? (object)DBNull.Value;
+            cmd.Parameters.Add("@CostCtr",         SqlDbType.VarChar, 15).Value = m.CostCtr            ?? (object)DBNull.Value;
+            cmd.Parameters.Add("@Approvoff",       SqlDbType.VarChar, 10).Value = m.Approvoff          ?? (object)DBNull.Value;
+            cmd.Parameters.Add("@RelMgr",          SqlDbType.VarChar, 10).Value = m.RelMgr             ?? (object)DBNull.Value;
+            cmd.Parameters.Add("@CollCode",        SqlDbType.VarChar, 10).Value = m.CollCode           ?? (object)DBNull.Value;
 
-private string FormatDate(string raw)
-{
-    if (!string.IsNullOrWhiteSpace(raw) && raw.Length == 8 && DateTime.TryParseExact(raw, "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out var date))
-    {
-        return date.ToString("MM/dd/yyyy");
-    }
-    return "00/00/0000";
-}
+            cmd.Parameters.Add("@OrigTerm",        SqlDbType.Int            ).Value = m.OrigTerm;
+            cmd.Parameters.Add("@PastDue",         SqlDbType.Int            ).Value = m.PastDue;
+            cmd.Parameters.Add("@DPD",             SqlDbType.Int            ).Value = m.DPD;
+            cmd.Parameters.Add("@PaysMadeNum",     SqlDbType.Int            ).Value = m.PaysMadeNum;
+
+            cmd.Parameters.Add("@ProdCode",        SqlDbType.VarChar, 10).Value = m.ProdCode           ?? (object)DBNull.Value;
+            cmd.Parameters.Add("@LoanSrcCd",       SqlDbType.VarChar, 10).Value = m.LoanSrcCd          ?? (object)DBNull.Value;
+
+            // 4) Execute – because the proc only INSERTs and returns nothing
+            await cmd.ExecuteNonQueryAsync();
+        }
