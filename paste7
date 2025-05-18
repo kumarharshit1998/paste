@@ -1,30 +1,108 @@
-public async Task InsertAutoFillAsync(SHAWAutofillModel m)
-        {
-            // 1) Create & open connection
-            await using var conn = new SqlConnection(_connStr);
-            await conn.OpenAsync();
+@page
+@model BulkAutoFillModel
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@{
+    ViewData["Title"] = "Bulk Auto‑Fill";
+}
 
-            // 2) Create command
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText  = "usp_LMG_InsertSHAWAutoFill";   // your proc name
-            cmd.CommandType  = CommandType.StoredProcedure;
+<link rel="stylesheet" href="~/css/site.css" />
 
-            // 3) Add parameters (12 total here – adjust as needed)
-            cmd.Parameters.Add("@AccountNum",      SqlDbType.VarChar, 20).Value = m.AccountNumber      ?? (object)DBNull.Value;
-            cmd.Parameters.Add("@AccrStat",        SqlDbType.VarChar, 10).Value = m.AccrStat           ?? (object)DBNull.Value;
-            cmd.Parameters.Add("@CostCtr",         SqlDbType.VarChar, 15).Value = m.CostCtr            ?? (object)DBNull.Value;
-            cmd.Parameters.Add("@Approvoff",       SqlDbType.VarChar, 10).Value = m.Approvoff          ?? (object)DBNull.Value;
-            cmd.Parameters.Add("@RelMgr",          SqlDbType.VarChar, 10).Value = m.RelMgr             ?? (object)DBNull.Value;
-            cmd.Parameters.Add("@CollCode",        SqlDbType.VarChar, 10).Value = m.CollCode           ?? (object)DBNull.Value;
+<h2 class="clsFormHeader text-center">Bulk Auto Fill</h2>
 
-            cmd.Parameters.Add("@OrigTerm",        SqlDbType.Int            ).Value = m.OrigTerm;
-            cmd.Parameters.Add("@PastDue",         SqlDbType.Int            ).Value = m.PastDue;
-            cmd.Parameters.Add("@DPD",             SqlDbType.Int            ).Value = m.DPD;
-            cmd.Parameters.Add("@PaysMadeNum",     SqlDbType.Int            ).Value = m.PaysMadeNum;
+<form asp-page="Index" enctype="multipart/form-data" method="post">
 
-            cmd.Parameters.Add("@ProdCode",        SqlDbType.VarChar, 10).Value = m.ProdCode           ?? (object)DBNull.Value;
-            cmd.Parameters.Add("@LoanSrcCd",       SqlDbType.VarChar, 10).Value = m.LoanSrcCd          ?? (object)DBNull.Value;
+    <!-- ===== STEP 1 –– Upload file ============ -->
+    @if (Model.WizardStep == WizardStep.UploadFile)
+    {
+        <div class="clsMainTable">
+            <div class="row mb-3">
+                <div class="col-md-8 offset-md-2 text-center">
+                    <label asp-for="Upload" class="form-label fw-bold">Upload Excel File:</label>
+                    <input asp-for="Upload" type="file" class="form-control" />
+                    <span class="text-danger" asp-validation-for="Upload"></span>
+                </div>
+            </div>
 
-            // 4) Execute – because the proc only INSERTs and returns nothing
-            await cmd.ExecuteNonQueryAsync();
-        }
+            <div class="text-center">
+                <button type="submit" asp-page-handler="Load" class="btn btn-primary">
+                    Upload Spreadsheet
+                </button>
+            </div>
+        </div>
+    }
+
+    <!-- ===== STEP 2 –– Choose sheet tab ============ -->
+    @if (Model.WizardStep == WizardStep.ChooseSheet)
+    {
+        <div class="clsMainTable w-50 mx-auto">
+            <h4 class="clsFormHeader text-center">SHAW Auto Fill – Sheet Options</h4>
+
+            <div class="mb-3 text-center">
+                <label asp-for="SelectedSheet" class="form-label fw-bold">Choose Sheet Tab:</label>
+                <select asp-for="SelectedSheet" asp-items="Model.SheetItems" class="form-select w-75 mx-auto"></select>
+            </div>
+
+            <div class="text-center">
+                <button type="submit" asp-page-handler="NextSheet" class="btn btn-primary">Next</button>
+            </div>
+        </div>
+    }
+
+    <!-- ===== STEP 3 –– Choose fields ============ -->
+    @if (Model.WizardStep == WizardStep.ChooseFields)
+    {
+        <div class="clsMainTable w-75 mx-auto">
+            <h4 class="clsFormHeader text-center">SHAW Auto Fill – Field Options</h4>
+
+            <div class="row mb-3">
+                <div class="col-md-6 text-end fw-bold">Select Account Number Field:</div>
+                <div class="col-md-6">
+                    <select asp-for="SelectedAccountColumn" asp-items="Model.ColumnItems" class="form-select"></select>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6 text-end fw-bold">Select Com End Date Field:</div>
+                <div class="col-md-6">
+                    <select asp-for="SelectedDateColumn" asp-items="Model.ColumnItems" class="form-select"></select>
+                </div>
+            </div>
+
+            <div class="row mb-4 text-center">
+                <div class="col">
+                    <div class="form-check d-inline-block me-3">
+                        <input asp-for="RandomLO" class="form-check-input" />
+                        <label asp-for="RandomLO" class="form-check-label">Random assign to LO</label>
+                    </div>
+                    <div class="form-check d-inline-block me-3">
+                        <input asp-for="RandomPR" class="form-check-input" />
+                        <label asp-for="RandomPR" class="form-check-label">Random assign to PR</label>
+                    </div>
+                    <div class="form-check d-inline-block">
+                        <input asp-for="RandomCH" class="form-check-input" />
+                        <label asp-for="RandomCH" class="form-check-label">Random assign to CHLS</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button type="submit" asp-page-handler="Queue" class="btn btn-success">Queue Accounts</button>
+            </div>
+        </div>
+    }
+
+    <!-- ===== STEP 4 –– Summary / Ready ============ -->
+    @if (Model.WizardStep == WizardStep.Done)
+    {
+        <div class="clsMainTable w-75 mx-auto text-center">
+            <h4 class="clsFormHeader">SHAW Auto Fill – Ready</h4>
+            <p class="fw-bold">Queued @Model.QueuedCount accounts successfully.</p>
+
+            <button asp-page-handler="ShowReady" class="btn btn-secondary">Show Ready</button>
+        </div>
+    }
+</form>
+
+@section Scripts{
+    <partial name="_ValidationScriptsPartial" />
+}
