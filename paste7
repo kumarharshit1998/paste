@@ -1,108 +1,44 @@
-@page
-@model BulkAutoFillModel
-@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
 @{
-    ViewData["Title"] = "Bulk Auto‑Fill";
+    ViewData["Title"] = "Upload Excel";
+    var showSheetSelector = ViewBag.ShowSheetSelector != null && (bool)ViewBag.ShowSheetSelector;
+    var sheetNames = ViewBag.SheetNames as List<string>;
 }
 
-<link rel="stylesheet" href="~/css/site.css" />
+<h2>Upload Excel</h2>
 
-<h2 class="clsFormHeader text-center">Bulk Auto Fill</h2>
+@if (!showSheetSelector)
+{
+    <form asp-action="Upload" asp-controller="Excel" method="post" enctype="multipart/form-data">
+        <input type="file" name="ExcelFile" accept=".xlsx" required />
+        <button type="submit">Upload Spreadsheet</button>
+    </form>
+}
+else
+{
+    <table border="1" cellpadding="10">
+        <tr>
+            <th colspan="2" style="text-align:left; background-color:#f2f2f2;">
+                SHAW Autofill Sheet Options
+            </th>
+        </tr>
+        <tr>
+            <td>Choose Sheet Tab:</td>
+            <td>
+                <form asp-action="MapColumns" asp-controller="Excel" method="post">
+                    <select name="SelectedSheet" required>
+                        @foreach (var sheet in sheetNames)
+                        {
+                            <option value="@sheet">@sheet</option>
+                        }
+                    </select>
+                    <button type="submit">NEXT</button>
+                </form>
+            </td>
+        </tr>
+    </table>
+}
 
-<form asp-page="Index" enctype="multipart/form-data" method="post">
-
-    <!-- ===== STEP 1 –– Upload file ============ -->
-    @if (Model.WizardStep == WizardStep.UploadFile)
-    {
-        <div class="clsMainTable">
-            <div class="row mb-3">
-                <div class="col-md-8 offset-md-2 text-center">
-                    <label asp-for="Upload" class="form-label fw-bold">Upload Excel File:</label>
-                    <input asp-for="Upload" type="file" class="form-control" />
-                    <span class="text-danger" asp-validation-for="Upload"></span>
-                </div>
-            </div>
-
-            <div class="text-center">
-                <button type="submit" asp-page-handler="Load" class="btn btn-primary">
-                    Upload Spreadsheet
-                </button>
-            </div>
-        </div>
-    }
-
-    <!-- ===== STEP 2 –– Choose sheet tab ============ -->
-    @if (Model.WizardStep == WizardStep.ChooseSheet)
-    {
-        <div class="clsMainTable w-50 mx-auto">
-            <h4 class="clsFormHeader text-center">SHAW Auto Fill – Sheet Options</h4>
-
-            <div class="mb-3 text-center">
-                <label asp-for="SelectedSheet" class="form-label fw-bold">Choose Sheet Tab:</label>
-                <select asp-for="SelectedSheet" asp-items="Model.SheetItems" class="form-select w-75 mx-auto"></select>
-            </div>
-
-            <div class="text-center">
-                <button type="submit" asp-page-handler="NextSheet" class="btn btn-primary">Next</button>
-            </div>
-        </div>
-    }
-
-    <!-- ===== STEP 3 –– Choose fields ============ -->
-    @if (Model.WizardStep == WizardStep.ChooseFields)
-    {
-        <div class="clsMainTable w-75 mx-auto">
-            <h4 class="clsFormHeader text-center">SHAW Auto Fill – Field Options</h4>
-
-            <div class="row mb-3">
-                <div class="col-md-6 text-end fw-bold">Select Account Number Field:</div>
-                <div class="col-md-6">
-                    <select asp-for="SelectedAccountColumn" asp-items="Model.ColumnItems" class="form-select"></select>
-                </div>
-            </div>
-
-            <div class="row mb-3">
-                <div class="col-md-6 text-end fw-bold">Select Com End Date Field:</div>
-                <div class="col-md-6">
-                    <select asp-for="SelectedDateColumn" asp-items="Model.ColumnItems" class="form-select"></select>
-                </div>
-            </div>
-
-            <div class="row mb-4 text-center">
-                <div class="col">
-                    <div class="form-check d-inline-block me-3">
-                        <input asp-for="RandomLO" class="form-check-input" />
-                        <label asp-for="RandomLO" class="form-check-label">Random assign to LO</label>
-                    </div>
-                    <div class="form-check d-inline-block me-3">
-                        <input asp-for="RandomPR" class="form-check-input" />
-                        <label asp-for="RandomPR" class="form-check-label">Random assign to PR</label>
-                    </div>
-                    <div class="form-check d-inline-block">
-                        <input asp-for="RandomCH" class="form-check-input" />
-                        <label asp-for="RandomCH" class="form-check-label">Random assign to CHLS</label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="text-center">
-                <button type="submit" asp-page-handler="Queue" class="btn btn-success">Queue Accounts</button>
-            </div>
-        </div>
-    }
-
-    <!-- ===== STEP 4 –– Summary / Ready ============ -->
-    @if (Model.WizardStep == WizardStep.Done)
-    {
-        <div class="clsMainTable w-75 mx-auto text-center">
-            <h4 class="clsFormHeader">SHAW Auto Fill – Ready</h4>
-            <p class="fw-bold">Queued @Model.QueuedCount accounts successfully.</p>
-
-            <button asp-page-handler="ShowReady" class="btn btn-secondary">Show Ready</button>
-        </div>
-    }
-</form>
-
-@section Scripts{
-    <partial name="_ValidationScriptsPartial" />
+@if (ViewBag.Error != null)
+{
+    <p style="color:red">@ViewBag.Error</p>
 }
