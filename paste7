@@ -1,44 +1,27 @@
-@{
-    ViewData["Title"] = "Upload Excel";
-    var showSheetSelector = ViewBag.ShowSheetSelector != null && (bool)ViewBag.ShowSheetSelector;
-    var sheetNames = ViewBag.SheetNames as List<string>;
+[HttpGet]
+public IActionResult Upload()
+{
+    return View();
 }
 
-<h2>Upload Excel</h2>
+[HttpPost]
+public IActionResult Upload(IFormFile ExcelFile)
+{
+    if (ExcelFile == null || ExcelFile.Length == 0)
+    {
+        ViewBag.Error = "Please select a file.";
+        return View();
+    }
 
-@if (!showSheetSelector)
-{
-    <form asp-action="Upload" asp-controller="Excel" method="post" enctype="multipart/form-data">
-        <input type="file" name="ExcelFile" accept=".xlsx" required />
-        <button type="submit">Upload Spreadsheet</button>
-    </form>
-}
-else
-{
-    <table border="1" cellpadding="10">
-        <tr>
-            <th colspan="2" style="text-align:left; background-color:#f2f2f2;">
-                SHAW Autofill Sheet Options
-            </th>
-        </tr>
-        <tr>
-            <td>Choose Sheet Tab:</td>
-            <td>
-                <form asp-action="MapColumns" asp-controller="Excel" method="post">
-                    <select name="SelectedSheet" required>
-                        @foreach (var sheet in sheetNames)
-                        {
-                            <option value="@sheet">@sheet</option>
-                        }
-                    </select>
-                    <button type="submit">NEXT</button>
-                </form>
-            </td>
-        </tr>
-    </table>
-}
+    using var stream = new MemoryStream();
+    ExcelFile.CopyTo(stream);
+    using var package = new ExcelPackage(stream);
+    var sheetNames = package.Workbook.Worksheets.Select(ws => ws.Name).ToList();
 
-@if (ViewBag.Error != null)
-{
-    <p style="color:red">@ViewBag.Error</p>
+    // Store the uploaded file in TempData as base64 for the next step
+    TempData["ExcelFileBase64"] = Convert.ToBase64String(stream.ToArray());
+    ViewBag.SheetNames = sheetNames;
+    ViewBag.ShowSheetSelector = true;
+
+    return View();
 }
