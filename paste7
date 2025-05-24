@@ -30,7 +30,33 @@ public class AutoFillController : Controller
         foreach (var sheet in package.Workbook.Worksheets)
         {
             sheetNames.Add(sheet.Name);
-        }@{
+        }
+
+        return Json(new
+        {
+            success = true,
+            sheets = sheetNames,
+            base64 = base64
+        });
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@{
     ViewData["Title"] = "Excel Upload";
     Layout = "_Layout";
 }
@@ -94,27 +120,3 @@ public class AutoFillController : Controller
     }
 </script>
 }
-
-
-        return Json(new
-        {
-            success = true,
-            sheets = sheetNames,
-            base64 = base64
-        });
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
