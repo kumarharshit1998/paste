@@ -1,62 +1,54 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OfficeOpenXml;
-using System.Text.Json;
+using System.Text;
 
-namespace LossMitigationMVC.Controllers
+[Authorize]
+public class AutoFillController : Controller
 {
-    [Authorize]
-    public class AutoFillController : Controller
+    [HttpGet]
+    public IActionResult BulkImport()
     {
-        [HttpGet]
-        public IActionResult BulkImport(string stage = null)
+        ViewBag.Stage = "Upload"; // default view
+        return View();
+    }
+
+    [HttpPost]
+    public IActionResult BulkImport(IFormFile ExcelFile, string stage, string SelectedSheet)
+    {
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+        if (stage == "upload")
         {
-            if (stage == "SelectSheet" && TempData["SheetNames"] != null)
+            if (ExcelFile == null || ExcelFile.Length == 0)
             {
-                ViewBag.SheetNames = JsonSerializer.Deserialize<List<string>>(TempData["SheetNames"].ToString());
-                ViewBag.Stage = "SelectSheet";
-            }
-            else if (stage == "MapColumns" && TempData["SelectedSheet"] != null)
-            {
-                ViewBag.SelectedSheet = TempData["SelectedSheet"].ToString();
-                ViewBag.Stage = "MapColumns";
+                ViewBag.Error = "Please select a valid Excel file.";
+                ViewBag.Stage = "Upload";
+                return View();
             }
 
+            using var stream = new MemoryStream();
+            ExcelFile.CopyTo(stream);
+
+            using var package = new ExcelPackage(stream);
+            var sheetNames = package.Workbook.Worksheets.Select(ws => ws.Name).ToList();
+
+            // Store Excel file in TempData as Base64
+            TempData["ExcelFile"] = Convert.ToBase64String(stream.ToArray());
+            ViewBag.SheetNames = sheetNames;
+            ViewBag.Stage = "SelectSheet";
             return View();
         }
 
-        [HttpPost]
-        public IActionResult BulkImport(IFormFile ExcelFile, string stage, string SelectedSheet)
+        if (stage == "sheetSelected")
         {
-            if (stage == "upload")
-            {
-                if (ExcelFile == null || ExcelFile.Length == 0)
-                {
-                    ViewBag.Error = "Please select a valid Excel file.";
-                    return View();
-                }
-
-                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-
-                using var stream = new MemoryStream();
-                ExcelFile.CopyTo(stream);
-                using var package = new ExcelPackage(stream);
-                var sheetNames = package.Workbook.Worksheets.Select(ws => ws.Name).ToList();
-
-                TempData["ExcelFileBase64"] = Convert.ToBase64String(stream.ToArray());
-                TempData["SheetNames"] = JsonSerializer.Serialize(sheetNames);
-
-                return RedirectToAction("BulkImport", new { stage = "SelectSheet" });
-            }
-
-            if (stage == "sheetSelected")
-            {
-                TempData["SelectedSheet"] = SelectedSheet;
-                return RedirectToAction("BulkImport", new { stage = "MapColumns" });
-            }
-
-            return View();
+            ViewBag.SelectedSheet = SelectedSheet;
+            ViewBag.Stage = "MapColumns";
+            return View(); // you can load columns here if needed
         }
+
+        ViewBag.Stage = "Upload";
+        return View();
     }
 }
 
@@ -77,54 +69,66 @@ namespace LossMitigationMVC.Controllers
 
 
 
-
-
-
 @{
     ViewData["Title"] = "Excel Import";
+    Layout = "_Layout";
     var stage = ViewBag.Stage as string;
     var sheetNames = ViewBag.SheetNames as List<string>;
 }
 
-<h2>Excel Import</h2>
+<link rel="stylesheet" type="text/css" href="~/css/site.css" />
 
-@if (string.IsNullOrEmpty(stage))
+@if (stage == "Upload" || string.IsNullOrEmpty(stage))
 {
     <form asp-action="BulkImport" asp-controller="AutoFill" method="post" enctype="multipart/form-data">
         <input type="hidden" name="stage" value="upload" />
-        <div>
-            <label>Upload Excel File:</label>
-            <input type="file" name="ExcelFile" required />
-        </div>
-        <div>
-            <button type="submit">Upload Spreadsheet</button>
-        </div>
-        @if (ViewBag.Error != null)
-        {
-            <div style="color: red;">@ViewBag.Error</div>
-        }
+        <table class="clsDarkBorder" width="1000px">
+            <tr>
+                <td colspan="2" class="clsFormHeader" style="text-align:center;">Bulk Auto Fill</td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align:center;">
+                    Upload File: <input type="file" name="ExcelFile" required />
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align:center;">
+                    <label>To upload file, click 'Upload Spreadsheet'</label>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align:center;">
+                    <button type="submit" class="btn btn-primary">Upload Spreadsheet</button>
+                </td>
+            </tr>
+        </table>
     </form>
 }
-else if (stage == "SelectSheet" && sheetNames != null)
+
+@if (stage == "SelectSheet" && sheetNames != null)
 {
-    <form asp-action="BulkImport" asp-controller="AutoFill" method="post" enctype="multipart/form-data">
+    <form asp-action="BulkImport" asp-controller="AutoFill" method="post">
         <input type="hidden" name="stage" value="sheetSelected" />
-        <div>
-            <label>Select Sheet:</label>
-            <select name="SelectedSheet" required>
-                @foreach (var sheet in sheetNames)
-                {
-                    <option value="@sheet">@sheet</option>
-                }
-            </select>
-        </div>
-        <div>
-            <button type="submit">Next</button>
-        </div>
+        <table class="clsDarkBorder" width="1000px" style="margin-top:20px;">
+            <tr>
+                <td colspan="2" class="clsFormHeader">SHAW Autofill Sheet Options</td>
+            </tr>
+            <tr>
+                <td style="width: 300px;">Choose Sheet Tab:</td>
+                <td>
+                    <select name="SelectedSheet" class="form-select" required>
+                        @foreach (var sheet in sheetNames)
+                        {
+                            <option value="@sheet">@sheet</option>
+                        }
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align:center;">
+                    <button type="submit" class="btn btn-success">Next</button>
+                </td>
+            </tr>
+        </table>
     </form>
-}
-else if (stage == "MapColumns")
-{
-    <h4>Selected Sheet: @ViewBag.SelectedSheet</h4>
-    <!-- You can build your column-mapping logic here -->
 }
