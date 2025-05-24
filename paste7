@@ -1,59 +1,107 @@
 using Microsoft.AspNetCore.Mvc;
 using OfficeOpenXml;
 using System.IO;
-using Microsoft.AspNetCore.Http;
 using System.Collections.Generic;
-using System.Linq;
-using Microsoft.AspNetCore.Authorization;
 
-namespace LossMitigationMVC.Controllers
+public class AutoFillController : Controller
 {
-    [Authorize]
-    public class AutoFillController : Controller
+    [HttpGet]
+    public IActionResult ExcelUpload()
     {
-        [HttpGet]
-        public IActionResult BulkImport()
+        return View();
+    }
+
+    [HttpPost]
+    public IActionResult UploadExcel(IFormFile ExcelFile)
+    {
+        if (ExcelFile == null || ExcelFile.Length == 0)
         {
-            ViewBag.Stage = "upload";
-            return View();
+            return Json(new { success = false, message = "No file uploaded." });
         }
 
-        [HttpPost]
-        public IActionResult BulkImport(IFormFile ExcelFile, string stage, string SelectedSheet)
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+        using var stream = new MemoryStream();
+        ExcelFile.CopyTo(stream);
+        var base64 = Convert.ToBase64String(stream.ToArray());
+
+        using var package = new ExcelPackage(stream);
+        var sheetNames = new List<string>();
+        foreach (var sheet in package.Workbook.Worksheets)
         {
-            if (stage == "upload")
-            {
-                if (ExcelFile == null || ExcelFile.Length == 0)
-                {
-                    ViewBag.Error = "Please select a valid Excel file.";
-                    ViewBag.Stage = "upload";
-                    return View();
-                }
+            sheetNames.Add(sheet.Name);
+        }@{
+    ViewData["Title"] = "Excel Upload";
+    Layout = "_Layout";
+}
+<h2>Excel Upload</h2>
 
-                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+<input type="file" id="excelFile" />
+<button onclick="uploadExcel()">Upload Excel</button>
 
-                using var stream = new MemoryStream();
-                ExcelFile.CopyTo(stream);
+<div id="sheetSection" style="display:none; margin-top: 20px;">
+    <label>Select a sheet:</label>
+    <select id="sheetDropdown" onchange="sheetSelected(this)">
+    </select>
+</div>
 
-                using var package = new ExcelPackage(stream);
-                var sheetNames = package.Workbook.Worksheets.Select(ws => ws.Name).ToList();
+<div id="nextStep" style="margin-top: 20px;"></div>
 
-                TempData["ExcelFileBase64"] = Convert.ToBase64String(stream.ToArray());
-                ViewBag.SheetNames = sheetNames;
-                ViewBag.Stage = "SelectSheet";
-                return View();
-            }
-
-            if (stage == "sheetSelected")
-            {
-                ViewBag.SelectedSheet = SelectedSheet;
-                ViewBag.Stage = "MapColumns"; // For the next step if needed
-                return View();
-            }
-
-            ViewBag.Stage = "upload";
-            return View();
+@section Scripts {
+<script>
+    function uploadExcel() {
+        var fileInput = document.getElementById('excelFile');
+        if (!fileInput.files.length) {
+            alert("Please select an Excel file.");
+            return;
         }
+
+        var formData = new FormData();
+        formData.append("ExcelFile", fileInput.files[0]);
+
+        fetch("/AutoFill/UploadExcel", {
+            method: "POST",
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                let dropdown = document.getElementById("sheetDropdown");
+                dropdown.innerHTML = "";
+                data.sheets.forEach(sheet => {
+                    let option = document.createElement("option");
+                    option.value = sheet;
+                    option.textContent = sheet;
+                    dropdown.appendChild(option);
+                });
+                document.getElementById("sheetSection").style.display = "block";
+                window.uploadedExcelBase64 = data.base64;
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(err => {
+            console.error("Upload error:", err);
+            alert("Failed to upload file.");
+        });
+    }
+
+    function sheetSelected(selectElement) {
+        var selectedSheet = selectElement.value;
+        document.getElementById("nextStep").innerHTML =
+            `<p>You selected sheet: <strong>${selectedSheet}</strong></p>
+             <p>Now you can implement the next logic, like reading data or mapping columns.</p>`;
+    }
+</script>
+}
+
+
+        return Json(new
+        {
+            success = true,
+            sheets = sheetNames,
+            base64 = base64
+        });
     }
 }
 
@@ -69,57 +117,4 @@ namespace LossMitigationMVC.Controllers
 
 
 
-@{
-    ViewData["Title"] = "Excel Import";
-    Layout = "_Layout";
-    var stage = ViewBag.Stage as string ?? "";
-    var sheetNames = ViewBag.SheetNames as List<string> ?? new List<string>();
-    var error = ViewBag.Error as string;
-}
 
-<h2>Excel Import</h2>
-
-@if (!string.IsNullOrEmpty(error))
-{
-    <div class="alert alert-danger">@error</div>
-}
-
-<!-- Upload Excel File -->
-@if (stage == "upload")
-{
-    <form asp-action="BulkImport" asp-controller="AutoFill" method="post" enctype="multipart/form-data">
-        <input type="hidden" name="stage" value="upload" />
-        <div>
-            <label>Upload Excel File:</label>
-            <input type="file" name="ExcelFile" required />
-        </div>
-        <br />
-        <button type="submit" class="btn btn-primary">Upload Spreadsheet</button>
-    </form>
-}
-
-<!-- Select Sheet -->
-@if (stage == "SelectSheet")
-{
-    <form asp-action="BulkImport" asp-controller="AutoFill" method="post">
-        <input type="hidden" name="stage" value="sheetSelected" />
-        <div>
-            <label>Select Sheet:</label>
-            <select name="SelectedSheet" class="form-select" required>
-                @foreach (var sheet in sheetNames)
-                {
-                    <option value="@sheet">@sheet</option>
-                }
-            </select>
-        </div>
-        <br />
-        <button type="submit" class="btn btn-success">Next</button>
-    </form>
-}
-
-<!-- Next Step Placeholder -->
-@if (stage == "MapColumns")
-{
-    <p>You selected sheet: <strong>@ViewBag.SelectedSheet</strong></p>
-    <p>This is where you'd render the column mapping or next step.</p>
-}
