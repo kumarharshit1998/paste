@@ -1,44 +1,125 @@
+using Microsoft.AspNetCore.Mvc;
+using OfficeOpenXml;
+using System.IO;
+using Microsoft.AspNetCore.Http;
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.AspNetCore.Authorization;
+
+namespace LossMitigationMVC.Controllers
+{
+    [Authorize]
+    public class AutoFillController : Controller
+    {
+        [HttpGet]
+        public IActionResult BulkImport()
+        {
+            ViewBag.Stage = "upload";
+            return View();
+        }
+
+        [HttpPost]
+        public IActionResult BulkImport(IFormFile ExcelFile, string stage, string SelectedSheet)
+        {
+            if (stage == "upload")
+            {
+                if (ExcelFile == null || ExcelFile.Length == 0)
+                {
+                    ViewBag.Error = "Please select a valid Excel file.";
+                    ViewBag.Stage = "upload";
+                    return View();
+                }
+
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+                using var stream = new MemoryStream();
+                ExcelFile.CopyTo(stream);
+
+                using var package = new ExcelPackage(stream);
+                var sheetNames = package.Workbook.Worksheets.Select(ws => ws.Name).ToList();
+
+                TempData["ExcelFileBase64"] = Convert.ToBase64String(stream.ToArray());
+                ViewBag.SheetNames = sheetNames;
+                ViewBag.Stage = "SelectSheet";
+                return View();
+            }
+
+            if (stage == "sheetSelected")
+            {
+                ViewBag.SelectedSheet = SelectedSheet;
+                ViewBag.Stage = "MapColumns"; // For the next step if needed
+                return View();
+            }
+
+            ViewBag.Stage = "upload";
+            return View();
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 @{
     ViewData["Title"] = "Excel Import";
-    var stage = ViewBag.Stage as string ?? "upload";
-    var sheetNames = ViewBag.SheetNames as List<string>;
+    Layout = "_Layout";
+    var stage = ViewBag.Stage as string ?? "";
+    var sheetNames = ViewBag.SheetNames as List<string> ?? new List<string>();
+    var error = ViewBag.Error as string;
 }
 
-<h2>Bulk Import</h2>
+<h2>Excel Import</h2>
 
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<!-- Upload Excel File -->
 @if (stage == "upload")
 {
-    <form asp-action="BulkImport" method="post" enctype="multipart/form-data">
+    <form asp-action="BulkImport" asp-controller="AutoFill" method="post" enctype="multipart/form-data">
         <input type="hidden" name="stage" value="upload" />
         <div>
-            <label>Select Excel File:</label>
+            <label>Upload Excel File:</label>
             <input type="file" name="ExcelFile" required />
         </div>
-        <div>
-            <button type="submit">Upload Spreadsheet</button>
-        </div>
+        <br />
+        <button type="submit" class="btn btn-primary">Upload Spreadsheet</button>
     </form>
 }
-else if (stage == "selectSheet")
+
+<!-- Select Sheet -->
+@if (stage == "SelectSheet")
 {
-    <form asp-action="BulkImport" method="post">
+    <form asp-action="BulkImport" asp-controller="AutoFill" method="post">
         <input type="hidden" name="stage" value="sheetSelected" />
         <div>
             <label>Select Sheet:</label>
-            <select name="SelectedSheet" required>
+            <select name="SelectedSheet" class="form-select" required>
                 @foreach (var sheet in sheetNames)
                 {
                     <option value="@sheet">@sheet</option>
                 }
             </select>
         </div>
-        <div>
-            <button type="submit">Next</button>
-        </div>
+        <br />
+        <button type="submit" class="btn btn-success">Next</button>
     </form>
 }
-else if (stage == "mapColumns")
+
+<!-- Next Step Placeholder -->
+@if (stage == "MapColumns")
 {
     <p>You selected sheet: <strong>@ViewBag.SelectedSheet</strong></p>
-    <!-- Placeholder for column mapping screen -->
+    <p>This is where you'd render the column mapping or next step.</p>
 }
