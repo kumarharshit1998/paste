@@ -1,56 +1,63 @@
-[Authorize]
-[HttpGet]
-public IActionResult BulkImport(string stage)
-{
-    if (stage == "SelectSheet")
-    {
-        if (TempData["SheetNames"] != null)
-        {
-            ViewBag.SheetNames = JsonConvert.DeserializeObject<List<string>>(TempData["SheetNames"].ToString());
-            ViewBag.Stage = "SelectSheet";
-        }
-    }
-    else if (stage == "MapColumns")
-    {
-        ViewBag.SelectedSheet = TempData["SelectedSheet"];
-        ViewBag.Stage = "MapColumns";
-    }
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using OfficeOpenXml;
+using System.Text.Json;
 
-    return View();
-}
-
-[Authorize]
-[HttpPost]
-public IActionResult BulkImport(IFormFile ExcelFile, string stage, string SelectedSheet)
+namespace LossMitigationMVC.Controllers
 {
-    if (stage == "upload")
+    [Authorize]
+    public class AutoFillController : Controller
     {
-        if (ExcelFile == null || ExcelFile.Length == 0)
+        [HttpGet]
+        public IActionResult BulkImport(string stage = null)
         {
-            ViewBag.Error = "Please select a valid Excel file.";
+            if (stage == "SelectSheet" && TempData["SheetNames"] != null)
+            {
+                ViewBag.SheetNames = JsonSerializer.Deserialize<List<string>>(TempData["SheetNames"].ToString());
+                ViewBag.Stage = "SelectSheet";
+            }
+            else if (stage == "MapColumns" && TempData["SelectedSheet"] != null)
+            {
+                ViewBag.SelectedSheet = TempData["SelectedSheet"].ToString();
+                ViewBag.Stage = "MapColumns";
+            }
+
             return View();
         }
 
-        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-        using var stream = new MemoryStream();
-        ExcelFile.CopyTo(stream);
-        using var package = new ExcelPackage(stream);
+        [HttpPost]
+        public IActionResult BulkImport(IFormFile ExcelFile, string stage, string SelectedSheet)
+        {
+            if (stage == "upload")
+            {
+                if (ExcelFile == null || ExcelFile.Length == 0)
+                {
+                    ViewBag.Error = "Please select a valid Excel file.";
+                    return View();
+                }
 
-        var sheetNames = package.Workbook.Worksheets.Select(ws => ws.Name).ToList();
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
-        TempData["ExcelFileBase64"] = Convert.ToBase64String(stream.ToArray());
-        TempData["SheetNames"] = JsonConvert.SerializeObject(sheetNames);
+                using var stream = new MemoryStream();
+                ExcelFile.CopyTo(stream);
+                using var package = new ExcelPackage(stream);
+                var sheetNames = package.Workbook.Worksheets.Select(ws => ws.Name).ToList();
 
-        return RedirectToAction("BulkImport", new { stage = "SelectSheet" });
+                TempData["ExcelFileBase64"] = Convert.ToBase64String(stream.ToArray());
+                TempData["SheetNames"] = JsonSerializer.Serialize(sheetNames);
+
+                return RedirectToAction("BulkImport", new { stage = "SelectSheet" });
+            }
+
+            if (stage == "sheetSelected")
+            {
+                TempData["SelectedSheet"] = SelectedSheet;
+                return RedirectToAction("BulkImport", new { stage = "MapColumns" });
+            }
+
+            return View();
+        }
     }
-
-    if (stage == "sheetSelected")
-    {
-        TempData["SelectedSheet"] = SelectedSheet;
-        return RedirectToAction("BulkImport", new { stage = "MapColumns" });
-    }
-
-    return View();
 }
 
 
@@ -68,3 +75,56 @@ public IActionResult BulkImport(IFormFile ExcelFile, string stage, string Select
 
 
 
+
+
+
+
+
+@{
+    ViewData["Title"] = "Excel Import";
+    var stage = ViewBag.Stage as string;
+    var sheetNames = ViewBag.SheetNames as List<string>;
+}
+
+<h2>Excel Import</h2>
+
+@if (string.IsNullOrEmpty(stage))
+{
+    <form asp-action="BulkImport" asp-controller="AutoFill" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="stage" value="upload" />
+        <div>
+            <label>Upload Excel File:</label>
+            <input type="file" name="ExcelFile" required />
+        </div>
+        <div>
+            <button type="submit">Upload Spreadsheet</button>
+        </div>
+        @if (ViewBag.Error != null)
+        {
+            <div style="color: red;">@ViewBag.Error</div>
+        }
+    </form>
+}
+else if (stage == "SelectSheet" && sheetNames != null)
+{
+    <form asp-action="BulkImport" asp-controller="AutoFill" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="stage" value="sheetSelected" />
+        <div>
+            <label>Select Sheet:</label>
+            <select name="SelectedSheet" required>
+                @foreach (var sheet in sheetNames)
+                {
+                    <option value="@sheet">@sheet</option>
+                }
+            </select>
+        </div>
+        <div>
+            <button type="submit">Next</button>
+        </div>
+    </form>
+}
+else if (stage == "MapColumns")
+{
+    <h4>Selected Sheet: @ViewBag.SelectedSheet</h4>
+    <!-- You can build your column-mapping logic here -->
+}
