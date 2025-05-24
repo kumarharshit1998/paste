@@ -1,27 +1,121 @@
 [HttpGet]
-public IActionResult Upload()
+public IActionResult BulkAutoFill()
 {
     return View();
 }
 
 [HttpPost]
-public IActionResult Upload(IFormFile ExcelFile)
+public IActionResult BulkAutoFill(IFormFile ExcelFile, string stage, string SelectedSheet)
 {
-    if (ExcelFile == null || ExcelFile.Length == 0)
+    if (stage == "upload")
     {
-        ViewBag.Error = "Please select a file.";
+        if (ExcelFile == null || ExcelFile.Length == 0)
+        {
+            ViewBag.Error = "Please select a valid Excel file.";
+            return View();
+        }
+
+        using var stream = new MemoryStream();
+        ExcelFile.CopyTo(stream);
+        using var package = new ExcelPackage(stream);
+        var sheetNames = package.Workbook.Worksheets.Select(ws => ws.Name).ToList();
+
+        TempData["ExcelFileBase64"] = Convert.ToBase64String(stream.ToArray());
+        ViewBag.SheetNames = sheetNames;
+        ViewBag.Stage = "ChooseSheet";
+        return View();
+    }
+    else if (stage == "sheetSelected")
+    {
+        ViewBag.SelectedSheet = SelectedSheet;
+        ViewBag.Stage = "MapColumns";
         return View();
     }
 
-    using var stream = new MemoryStream();
-    ExcelFile.CopyTo(stream);
-    using var package = new ExcelPackage(stream);
-    var sheetNames = package.Workbook.Worksheets.Select(ws => ws.Name).ToList();
-
-    // Store the uploaded file in TempData as base64 for the next step
-    TempData["ExcelFileBase64"] = Convert.ToBase64String(stream.ToArray());
-    ViewBag.SheetNames = sheetNames;
-    ViewBag.ShowSheetSelector = true;
-
     return View();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@{
+    ViewData["Title"] = "Bulk Auto Fill";
+    var stage = ViewBag.Stage as string;
+    var sheetNames = ViewBag.SheetNames as List<string>;
+    var selectedSheet = ViewBag.SelectedSheet as string;
+}
+
+<form asp-action="BulkAutoFill" asp-controller="AutoFill" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="stage" value="upload" />
+
+    <table id="BAF" width="1000px" class="clsDarkBorder">
+        <tr>
+            <td colspan="2" class="clsFormHeader" style="text-align:center;">Bulk Auto Fill</td>
+        </tr>
+        <tr>
+            <td colspan="2" style="text-align:center;">
+                Upload File: <input type="file" name="ExcelFile" required />
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2" style="text-align:center;">
+                <label>To upload file, click 'Upload Spreadsheet'</label>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2" style="text-align:center;">
+                <button type="submit" class="btn btn-success">Upload Spreadsheet</button>
+            </td>
+        </tr>
+    </table>
+</form>
+
+@if (stage == "ChooseSheet")
+{
+    <form asp-action="BulkAutoFill" asp-controller="AutoFill" method="post">
+        <input type="hidden" name="stage" value="sheetSelected" />
+
+        <table width="1000px" class="clsDarkBorder" style="margin-top:20px;">
+            <tr>
+                <td colspan="2" class="clsFormHeader" style="text-align:left;">SHAW Autofill Sheet Options</td>
+            </tr>
+            <tr>
+                <td style="width: 200px;">Choose Sheet Tab:</td>
+                <td>
+                    <select name="SelectedSheet" class="form-select" required>
+                        @foreach (var sheet in sheetNames)
+                        {
+                            <option value="@sheet">@sheet</option>
+                        }
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align:center;">
+                    <button type="submit" class="btn btn-primary">NEXT</button>
+                </td>
+            </tr>
+        </table>
+    </form>
+}
+
+@if (!string.IsNullOrEmpty(ViewBag.Error as string))
+{
+    <p style="color:red">@ViewBag.Error</p>
 }
