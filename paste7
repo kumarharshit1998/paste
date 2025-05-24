@@ -1,70 +1,44 @@
-using Microsoft.AspNetCore.Mvc;
-using OfficeOpenXml;
-using System.Text;
+@{
+    ViewData["Title"] = "Excel Import";
+    var stage = ViewBag.Stage as string ?? "upload";
+    var sheetNames = ViewBag.SheetNames as List<string>;
+}
 
-public class AutoFillController : Controller
+<h2>Bulk Import</h2>
+
+@if (stage == "upload")
 {
-    [HttpGet]
-    public IActionResult BulkImport()
-    {
-        ViewBag.Stage = "upload";
-        return View();
-    }
-
-    [HttpPost]
-    public IActionResult BulkImport(IFormFile ExcelFile, string stage, string SelectedSheet)
-    {
-        if (stage == "upload")
-        {
-            if (ExcelFile == null || ExcelFile.Length == 0)
-            {
-                ViewBag.Error = "No file uploaded";
-                ViewBag.Stage = "upload";
-                return View();
-            }
-
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-
-            using var stream = new MemoryStream();
-            ExcelFile.CopyTo(stream);
-
-            using var package = new ExcelPackage(stream);
-            var sheetNames = package.Workbook.Worksheets.Select(ws => ws.Name).ToList();
-
-            // Store the file for later use (as base64 for now)
-            TempData["ExcelFile"] = Convert.ToBase64String(stream.ToArray());
-            ViewBag.SheetNames = sheetNames;
-            ViewBag.Stage = "selectSheet";
-            return View();
-        }
-        else if (stage == "sheetSelected")
-        {
-            var base64Excel = TempData["ExcelFile"] as string;
-            if (base64Excel == null)
-            {
-                ViewBag.Error = "Session expired. Please re-upload.";
-                ViewBag.Stage = "upload";
-                return View();
-            }
-
-            var fileBytes = Convert.FromBase64String(base64Excel);
-            using var stream = new MemoryStream(fileBytes);
-            using var package = new ExcelPackage(stream);
-            var worksheet = package.Workbook.Worksheets[SelectedSheet];
-
-            if (worksheet == null)
-            {
-                ViewBag.Error = "Invalid sheet selected.";
-                ViewBag.Stage = "upload";
-                return View();
-            }
-
-            ViewBag.SelectedSheet = SelectedSheet;
-            ViewBag.Stage = "mapColumns";
-            return View();
-        }
-
-        ViewBag.Stage = "upload";
-        return View();
-    }
+    <form asp-action="BulkImport" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="stage" value="upload" />
+        <div>
+            <label>Select Excel File:</label>
+            <input type="file" name="ExcelFile" required />
+        </div>
+        <div>
+            <button type="submit">Upload Spreadsheet</button>
+        </div>
+    </form>
+}
+else if (stage == "selectSheet")
+{
+    <form asp-action="BulkImport" method="post">
+        <input type="hidden" name="stage" value="sheetSelected" />
+        <div>
+            <label>Select Sheet:</label>
+            <select name="SelectedSheet" required>
+                @foreach (var sheet in sheetNames)
+                {
+                    <option value="@sheet">@sheet</option>
+                }
+            </select>
+        </div>
+        <div>
+            <button type="submit">Next</button>
+        </div>
+    </form>
+}
+else if (stage == "mapColumns")
+{
+    <p>You selected sheet: <strong>@ViewBag.SelectedSheet</strong></p>
+    <!-- Placeholder for column mapping screen -->
 }
