@@ -1,17 +1,31 @@
-using var stream = new MemoryStream();
-            ExcelFile.CopyTo(stream);
+try
+    {
+        if (ExcelFile == null || ExcelFile.Length == 0)
+            return Content("No file uploaded.");
 
-            // Store base64 for later use (e.g., reloading the file in memory)
-            TempData["ExcelFileBase64"] = Convert.ToBase64String(stream.ToArray());
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
-            using var package = new ExcelPackage(stream);
-            var sheetNames = new List<string>();
-            foreach (var sheet in package.Workbook.Worksheets)
-            {
-                sheetNames.Add(sheet.Name);
-            }
+        using var stream = new MemoryStream();
+        ExcelFile.CopyTo(stream);
+        stream.Position = 0;
 
-            ViewBag.SheetNames = sheetNames;
-            ViewBag.Stage = "SelectSheet";
-            return View();
+        // Don't store huge Base64 in TempData
+        // TempData["ExcelFileBase64"] = Convert.ToBase64String(stream.ToArray());
+
+        using var package = new ExcelPackage(stream);
+
+        var sheetNames = new List<string>();
+        foreach (var sheet in package.Workbook.Worksheets)
+        {
+            sheetNames.Add(sheet.Name);
         }
+
+        ViewBag.SheetNames = sheetNames;
+        ViewBag.Stage = "SelectSheet";
+
+        return View("SelectSheet"); // or return View(); if staying on the same view
+    }
+    catch (Exception ex)
+    {
+        return Content("Error: " + ex.Message);
+    }
