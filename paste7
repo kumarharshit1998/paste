@@ -1,91 +1,46 @@
-[HttpGet]
-[Authorize]
-public IActionResult BulkImport()
-{
-    ViewBag.Stage = "Upload"; // Initial stage
-    ViewData["Title"] = "Excel Import";
-    return View();
-}
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using System.Data;
 
-[HttpPost]
-[Authorize]
-public IActionResult BulkImport(IFormFile ExcelFile, string selectedSheet, string stage)
+public class ExcelRepository : IExcelRepository
 {
-    ViewData["Title"] = "Excel Import";
+    private readonly ApplicationDbContext _db;
 
-    // Step 1: Upload file
-    if (stage == "Upload")
+    public ExcelRepository(ApplicationDbContext db)
     {
-        if (ExcelFile == null || ExcelFile.Length == 0)
-        {
-            ViewBag.Error = "No file uploaded.";
-            ViewBag.Stage = "Upload";
-            return View();
-        }
-
-        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-        using var stream = new MemoryStream();
-        ExcelFile.CopyTo(stream);
-        var excelBytes = stream.ToArray();
-
-        // Store file and sheet names in TempData
-        TempData["ExcelBytes"] = Convert.ToBase64String(excelBytes);
-        TempData.Keep("ExcelBytes");
-
-        using var package = new ExcelPackage(new MemoryStream(excelBytes));
-        var sheetNames = new List<string>();
-        foreach (var sheet in package.Workbook.Worksheets)
-        {
-            sheetNames.Add(sheet.Name);
-        }
-
-        ViewBag.SheetNames = sheetNames;
-        ViewBag.Stage = "SelectSheet";
-        return View();
+        _db = db;
     }
 
-    // Step 2: Sheet selection
-    if (stage == "SelectSheet")
+    public List<SelectListItem> GetDropdownColumns(string sheetName)
     {
-        var excelBase64 = TempData["ExcelBytes"] as string;
-        if (string.IsNullOrEmpty(excelBase64))
+        var columns = new List<SelectListItem>();
+
+        using (var command = _db.Database.GetDbConnection().CreateCommand())
         {
-            ViewBag.Error = "Session expired. Please upload the file again.";
-            ViewBag.Stage = "Upload";
-            return View();
+            command.CommandText = "GetExcelColumns"; // Your SP name
+            command.CommandType = CommandType.StoredProcedure;
+
+            var param = command.CreateParameter();
+            param.ParameterName = "@SheetName";
+            param.Value = sheetName;
+            command.Parameters.Add(param);
+
+            _db.Database.OpenConnection();
+
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    columns.Add(new SelectListItem
+                    {
+                        Value = reader.GetString(0),
+                        Text = reader.GetString(1)
+                    });
+                }
+            }
         }
 
-        var excelBytes = Convert.FromBase64String(excelBase64);
-        TempData["ExcelBytes"] = excelBase64;
-        TempData.Keep("ExcelBytes");
-
-        using var stream = new MemoryStream(excelBytes);
-        using var package = new ExcelPackage(stream);
-        var sheet = package.Workbook.Worksheets[selectedSheet];
-
-        if (sheet == null)
-        {
-            ViewBag.Error = "Selected sheet not found.";
-            ViewBag.Stage = "Upload";
-            return View();
-        }
-
-        var headers = new List<string>();
-        for (int col = 1; col <= sheet.Dimension.End.Column; col++)
-        {
-            headers.Add(sheet.Cells[1, col].Text);
-        }
-
-        ViewBag.Headers = headers;
-        ViewBag.Stage = "ShowTable";
-        ViewBag.SelectedSheet = selectedSheet;
-        TempData["SelectedSheet"] = selectedSheet;
-
-        return View();
+        return columns;
     }
-
-    // Default fallback
-    ViewBag.Error = "Invalid operation.";
-    ViewBag.Stage = "Upload";
-    return View();
 }
