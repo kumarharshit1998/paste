@@ -1,40 +1,132 @@
-using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore;
-using System.Data;
-using YourNamespace.Data;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using OfficeOpenXml;
+using YourNamespace.Repositories;
+using System.IO;
+using System.Text;
+using System.Collections.Generic;
 
-namespace YourNamespace.Repositories
+namespace YourNamespace.Controllers
 {
-    public interface IExcelImportRepository
+    public class ExcelImportController : Controller
     {
-        void RunStoredProcedure(string acctNum, string src, string stat, string user, string endDate, int RAto);
-    }
+        private readonly IExcelImportRepository _excelRepo;
 
-    public class ExcelImportRepository : IExcelImportRepository
-    {
-        private readonly ApplicationDbContext _db;
-
-        public ExcelImportRepository(ApplicationDbContext db)
+        public ExcelImportController(IExcelImportRepository excelRepo)
         {
-            _db = db;
+            _excelRepo = excelRepo;
         }
 
-        public void RunStoredProcedure(string acctNum, string src, string stat, string user, string endDate, int RAto)
+        [HttpGet]
+        [Authorize]
+        public IActionResult BulkImport()
         {
-            using var command = _db.Database.GetDbConnection().CreateCommand();
-            command.CommandText = "Your_StoredProcedure_Name"; // Replace with your SP name
-            command.CommandType = CommandType.StoredProcedure;
+            ViewBag.Stage = "Upload";
+            return View();
+        }
 
-            command.Parameters.Add(new SqlParameter("@AcctNum", acctNum));
-            command.Parameters.Add(new SqlParameter("@Src", src));
-            command.Parameters.Add(new SqlParameter("@Stat", stat));
-            command.Parameters.Add(new SqlParameter("@Usr", user));
-            command.Parameters.Add(new SqlParameter("@ComEndDt", endDate));
-            command.Parameters.Add(new SqlParameter("@RAto", RAto));
+        [HttpPost]
+        [Authorize]
+        public IActionResult BulkImport(string stage, string selectedSheet, string Src, string Stat, string AcctCol, string EndDtCol, bool CH, bool PR, bool LO)
+        {
+            ViewData["Title"] = "Excel Import";
 
-            _db.Database.OpenConnection();
-            command.ExecuteNonQuery();
-            _db.Database.CloseConnection();
+            if (stage == "SelectSheet")
+            {
+                var file = Request.Form.Files["file"];
+                if (file == null || file.Length == 0)
+                {
+                    ViewBag.Error = "Please upload a valid Excel file.";
+                    ViewBag.Stage = "Upload";
+                    return View();
+                }
+
+                using var stream = new MemoryStream();
+                file.CopyTo(stream);
+                TempData["ExcelBytes"] = Convert.ToBase64String(stream.ToArray());
+                TempData.Keep("ExcelBytes");
+
+                using var package = new ExcelPackage(stream);
+                var sheetNames = new List<string>();
+                foreach (var ws in package.Workbook.Worksheets)
+                {
+                    sheetNames.Add(ws.Name);
+                }
+
+                ViewBag.Sheets = sheetNames;
+                ViewBag.Stage = "SelectSheet";
+                return View();
+            }
+            else if (stage == "ShowTable")
+            {
+                var excelBytes = Convert.FromBase64String(TempData["ExcelBytes"] as string);
+                TempData["ExcelBytes"] = Convert.ToBase64String(excelBytes);
+                TempData.Keep("ExcelBytes");
+
+                using var stream = new MemoryStream(excelBytes);
+                using var package = new ExcelPackage(stream);
+                var sheet = package.Workbook.Worksheets[selectedSheet];
+
+                var headers = new List<string>();
+                for (int col = 1; col <= sheet.Dimension.End.Column; col++)
+                {
+                    headers.Add(sheet.Cells[1, col].Text.Trim());
+                }
+
+                ViewBag.Headers = headers;
+                ViewBag.SelectedSheet = selectedSheet;
+                ViewBag.Stage = "ShowTable";
+                return View();
+            }
+            else if (stage == "ProcessExcel")
+            {
+                var excelBytes = Convert.FromBase64String(TempData["ExcelBytes"] as string);
+                TempData["ExcelBytes"] = Convert.ToBase64String(excelBytes);
+                TempData.Keep("ExcelBytes");
+
+                using var stream = new MemoryStream(excelBytes);
+                using var package = new ExcelPackage(stream);
+                var sheet = package.Workbook.Worksheets[selectedSheet];
+
+                int acctColIndex = -1;
+                int endDtColIndex = -1;
+                for (int col = 1; col <= sheet.Dimension.End.Column; col++)
+                {
+                    var header = sheet.Cells[1, col].Text.Trim();
+                    if (header == AcctCol) acctColIndex = col;
+                    if (header == EndDtCol) endDtColIndex = col;
+                }
+
+                if (acctColIndex == -1 || endDtColIndex == -1)
+                {
+                    ViewBag.Error = "Invalid column selection.";
+                    ViewBag.Stage = "ShowTable";
+                    return View();
+                }
+
+                string user = HttpContext.User.Identity.Name;
+                int RAto = (CH ? 1 : 0) + (PR ? 2 : 0) + (LO ? 4 : 0);
+
+                int processedCount = 0;
+                for (int row = 2; row <= sheet.Dimension.End.Row; row++)
+                {
+                    string acctNum = sheet.Cells[row, acctColIndex].Text;
+                    string endDate = sheet.Cells[row, endDtColIndex].Text;
+
+                    if (!string.IsNullOrEmpty(acctNum) && !string.IsNullOrEmpty(endDate))
+                    {
+                        _excelRepo.RunStoredProcedure(acctNum, Src, Stat, user, endDate, RAto);
+                        processedCount++;
+                    }
+                }
+
+                ViewBag.ProcessedCount = processedCount;
+                ViewBag.Stage = "Result";
+                return View();
+            }
+
+            ViewBag.Stage = "Upload";
+            return View();
         }
     }
 }
