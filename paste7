@@ -1,163 +1,91 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using OfficeOpenXml;
-using System.Text;
-
-namespace YourNamespace.Controllers
+[HttpGet]
+[Authorize]
+public IActionResult BulkImport()
 {
-    [Authorize]
-    public class AutoFillController : Controller
+    ViewBag.Stage = "Upload"; // Initial stage
+    ViewData["Title"] = "Excel Import";
+    return View();
+}
+
+[HttpPost]
+[Authorize]
+public IActionResult BulkImport(IFormFile ExcelFile, string selectedSheet, string stage)
+{
+    ViewData["Title"] = "Excel Import";
+
+    // Step 1: Upload file
+    if (stage == "Upload")
     {
-        [HttpGet]
-        public IActionResult BulkImport()
+        if (ExcelFile == null || ExcelFile.Length == 0)
         {
+            ViewBag.Error = "No file uploaded.";
             ViewBag.Stage = "Upload";
             return View();
         }
 
-        [HttpPost]
-        public IActionResult BulkImport(IFormFile ExcelFile, string selectedSheet, string accountColumn, string dateColumn, string stage)
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+        using var stream = new MemoryStream();
+        ExcelFile.CopyTo(stream);
+        var excelBytes = stream.ToArray();
+
+        // Store file and sheet names in TempData
+        TempData["ExcelBytes"] = Convert.ToBase64String(excelBytes);
+        TempData.Keep("ExcelBytes");
+
+        using var package = new ExcelPackage(new MemoryStream(excelBytes));
+        var sheetNames = new List<string>();
+        foreach (var sheet in package.Workbook.Worksheets)
         {
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-
-            // Stage 1: Upload Excel
-            if (stage == null || stage == "Upload")
-            {
-                if (ExcelFile == null || ExcelFile.Length == 0)
-                {
-                    ViewBag.Error = "No file uploaded.";
-                    return View();
-                }
-
-                using var ms = new MemoryStream();
-                ExcelFile.CopyTo(ms);
-                TempData["ExcelBytes"] = Convert.ToBase64String(ms.ToArray());
-
-                using var package = new ExcelPackage(ms);
-                var sheetNames = package.Workbook.Worksheets.Select(s => s.Name).ToList();
-                ViewBag.SheetNames = sheetNames;
-                ViewBag.Stage = "SelectSheet";
-                return View();
-            }
-
-            // Stage 2: Sheet Selection
-            if (stage == "SelectSheet")
-            {
-                var excelBytes = Convert.FromBase64String(TempData["ExcelBytes"] as string);
-                TempData["ExcelBytes"] = Convert.ToBase64String(excelBytes); // re-store
-
-                using var stream = new MemoryStream(excelBytes);
-                using var package = new ExcelPackage(stream);
-                var sheet = package.Workbook.Worksheets[selectedSheet];
-
-                var headers = new List<string>();
-                for (int col = 1; col <= sheet.Dimension.End.Column; col++)
-                {
-                    headers.Add(sheet.Cells[1, col].Text);
-                }
-
-                ViewBag.Headers = headers;
-                ViewBag.Stage = "ShowTable";
-                TempData["SelectedSheet"] = selectedSheet;
-                return View();
-            }
-
-            // Stage 3: Process rows with selected dropdowns (optional logic)
-            if (stage == "ProcessRows")
-            {
-                // You can write your logic here to read each row and use accountColumn/dateColumn
-                // for stored procedure execution.
-                ViewBag.Message = $"Processing using Account Column: {accountColumn}, Date Column: {dateColumn}";
-                ViewBag.Stage = "Done";
-                return View();
-            }
-
-            ViewBag.Stage = "Upload";
-            return View();
+            sheetNames.Add(sheet.Name);
         }
+
+        ViewBag.SheetNames = sheetNames;
+        ViewBag.Stage = "SelectSheet";
+        return View();
     }
-}
 
+    // Step 2: Sheet selection
+    if (stage == "SelectSheet")
+    {
+        var excelBase64 = TempData["ExcelBytes"] as string;
+        if (string.IsNullOrEmpty(excelBase64))
+        {
+            ViewBag.Error = "Session expired. Please upload the file again.";
+            ViewBag.Stage = "Upload";
+            return View();
+        }
 
+        var excelBytes = Convert.FromBase64String(excelBase64);
+        TempData["ExcelBytes"] = excelBase64;
+        TempData.Keep("ExcelBytes");
 
+        using var stream = new MemoryStream(excelBytes);
+        using var package = new ExcelPackage(stream);
+        var sheet = package.Workbook.Worksheets[selectedSheet];
 
+        if (sheet == null)
+        {
+            ViewBag.Error = "Selected sheet not found.";
+            ViewBag.Stage = "Upload";
+            return View();
+        }
 
+        var headers = new List<string>();
+        for (int col = 1; col <= sheet.Dimension.End.Column; col++)
+        {
+            headers.Add(sheet.Cells[1, col].Text);
+        }
 
+        ViewBag.Headers = headers;
+        ViewBag.Stage = "ShowTable";
+        ViewBag.SelectedSheet = selectedSheet;
+        TempData["SelectedSheet"] = selectedSheet;
 
+        return View();
+    }
 
-
-
-
-
-
-
-
-
-
-@{
-    ViewData["Title"] = "Excel Bulk Import";
-    var stage = ViewBag.Stage as string;
-    var sheetNames = ViewBag.SheetNames as List<string>;
-    var headers = ViewBag.Headers as List<string>;
-}
-
-<h2>@ViewData["Title"]</h2>
-
-@if (!string.IsNullOrEmpty(ViewBag.Error as string))
-{
-    <div class="alert alert-danger">@ViewBag.Error</div>
-}
-
-@if (stage == "Upload")
-{
-    <form asp-action="BulkImport" method="post" enctype="multipart/form-data">
-        <input type="file" name="ExcelFile" class="form-control" />
-        <input type="hidden" name="stage" value="Upload" />
-        <button type="submit" class="btn btn-primary mt-2">Upload Excel</button>
-    </form>
-}
-else if (stage == "SelectSheet")
-{
-    <form asp-action="BulkImport" method="post">
-        <label>Select a sheet:</label>
-        <select name="selectedSheet" class="form-control">
-            @foreach (var sheet in sheetNames)
-            {
-                <option value="@sheet">@sheet</option>
-            }
-        </select>
-        <input type="hidden" name="stage" value="SelectSheet" />
-        <button type="submit" class="btn btn-primary mt-2">Next</button>
-    </form>
-}
-else if (stage == "ShowTable")
-{
-    <form asp-action="BulkImport" method="post">
-        <div>
-            <label>Select Account Number Column:</label>
-            <select name="accountColumn" class="form-control">
-                @foreach (var header in headers)
-                {
-                    <option value="@header">@header</option>
-                }
-            </select>
-        </div>
-
-        <div class="mt-2">
-            <label>Select Date Filed Column:</label>
-            <select name="dateColumn" class="form-control">
-                @foreach (var header in headers)
-                {
-                    <option value="@header">@header</option>
-                }
-            </select>
-        </div>
-
-        <input type="hidden" name="stage" value="ProcessRows" />
-        <button type="submit" class="btn btn-success mt-3">Start Processing</button>
-    </form>
-}
-else if (stage == "Done")
-{
-    <div class="alert alert-info">@ViewBag.Message</div>
+    // Default fallback
+    ViewBag.Error = "Invalid operation.";
+    ViewBag.Stage = "Upload";
+    return View();
 }
