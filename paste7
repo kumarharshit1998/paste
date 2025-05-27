@@ -1,132 +1,25 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using OfficeOpenXml;
-using YourNamespace.Repositories;
-using System.IO;
-using System.Text;
-using System.Collections.Generic;
+int RAto = 0;
 
-namespace YourNamespace.Controllers
-{
-    public class ExcelImportController : Controller
-    {
-        private readonly IExcelImportRepository _excelRepo;
+    if (CH) RAto += 1;   // CH = 1
+    if (PR) RAto += 2;   // PR = 2
+    if (LO) RAto += 3;   // LO = 3 (based on your mapping)
 
-        public ExcelImportController(IExcelImportRepository excelRepo)
-        {
-            _excelRepo = excelRepo;
-        }
-
-        [HttpGet]
-        [Authorize]
-        public IActionResult BulkImport()
-        {
-            ViewBag.Stage = "Upload";
-            return View();
-        }
-
-        [HttpPost]
-        [Authorize]
-        public IActionResult BulkImport(string stage, string selectedSheet, string Src, string Stat, string AcctCol, string EndDtCol, bool CH, bool PR, bool LO)
-        {
-            ViewData["Title"] = "Excel Import";
-
-            if (stage == "SelectSheet")
-            {
-                var file = Request.Form.Files["file"];
-                if (file == null || file.Length == 0)
-                {
-                    ViewBag.Error = "Please upload a valid Excel file.";
-                    ViewBag.Stage = "Upload";
-                    return View();
-                }
-
-                using var stream = new MemoryStream();
-                file.CopyTo(stream);
-                TempData["ExcelBytes"] = Convert.ToBase64String(stream.ToArray());
-                TempData.Keep("ExcelBytes");
-
-                using var package = new ExcelPackage(stream);
-                var sheetNames = new List<string>();
-                foreach (var ws in package.Workbook.Worksheets)
-                {
-                    sheetNames.Add(ws.Name);
-                }
-
-                ViewBag.Sheets = sheetNames;
-                ViewBag.Stage = "SelectSheet";
-                return View();
-            }
-            else if (stage == "ShowTable")
-            {
-                var excelBytes = Convert.FromBase64String(TempData["ExcelBytes"] as string);
-                TempData["ExcelBytes"] = Convert.ToBase64String(excelBytes);
-                TempData.Keep("ExcelBytes");
-
-                using var stream = new MemoryStream(excelBytes);
-                using var package = new ExcelPackage(stream);
-                var sheet = package.Workbook.Worksheets[selectedSheet];
-
-                var headers = new List<string>();
-                for (int col = 1; col <= sheet.Dimension.End.Column; col++)
-                {
-                    headers.Add(sheet.Cells[1, col].Text.Trim());
-                }
-
-                ViewBag.Headers = headers;
-                ViewBag.SelectedSheet = selectedSheet;
-                ViewBag.Stage = "ShowTable";
-                return View();
-            }
-            else if (stage == "ProcessExcel")
-            {
-                var excelBytes = Convert.FromBase64String(TempData["ExcelBytes"] as string);
-                TempData["ExcelBytes"] = Convert.ToBase64String(excelBytes);
-                TempData.Keep("ExcelBytes");
-
-                using var stream = new MemoryStream(excelBytes);
-                using var package = new ExcelPackage(stream);
-                var sheet = package.Workbook.Worksheets[selectedSheet];
-
-                int acctColIndex = -1;
-                int endDtColIndex = -1;
-                for (int col = 1; col <= sheet.Dimension.End.Column; col++)
-                {
-                    var header = sheet.Cells[1, col].Text.Trim();
-                    if (header == AcctCol) acctColIndex = col;
-                    if (header == EndDtCol) endDtColIndex = col;
-                }
-
-                if (acctColIndex == -1 || endDtColIndex == -1)
-                {
-                    ViewBag.Error = "Invalid column selection.";
-                    ViewBag.Stage = "ShowTable";
-                    return View();
-                }
-
-                string user = HttpContext.User.Identity.Name;
-                int RAto = (CH ? 1 : 0) + (PR ? 2 : 0) + (LO ? 4 : 0);
-
-                int processedCount = 0;
-                for (int row = 2; row <= sheet.Dimension.End.Row; row++)
-                {
-                    string acctNum = sheet.Cells[row, acctColIndex].Text;
-                    string endDate = sheet.Cells[row, endDtColIndex].Text;
-
-                    if (!string.IsNullOrEmpty(acctNum) && !string.IsNullOrEmpty(endDate))
-                    {
-                        _excelRepo.RunStoredProcedure(acctNum, Src, Stat, user, endDate, RAto);
-                        processedCount++;
-                    }
-                }
-
-                ViewBag.ProcessedCount = processedCount;
-                ViewBag.Stage = "Result";
-                return View();
-            }
-
-            ViewBag.Stage = "Upload";
-            return View();
-        }
-    }
-}
+    // But to match your logic:
+    // LO should be 3 if alone, 5/6/7 depending on combination
+    // So we need custom logic
+    if (CH && PR && LO)
+        RAto = 7;
+    else if (LO && PR)
+        RAto = 6;
+    else if (LO && CH)
+        RAto = 5;
+    else if (PR && CH)
+        RAto = 4;
+    else if (LO)
+        RAto = 3;
+    else if (PR)
+        RAto = 2;
+    else if (CH)
+        RAto = 1;
+    else
+        RAto = 0;
