@@ -1,25 +1,61 @@
-int RAto = 0;
+@using LossMitigationMVC.Models.AutoFillModels
+@model List<ExcelImportModel>
 
-    if (CH) RAto += 1;   // CH = 1
-    if (PR) RAto += 2;   // PR = 2
-    if (LO) RAto += 3;   // LO = 3 (based on your mapping)
+@{
+    var i = 0;
+}
 
-    // But to match your logic:
-    // LO should be 3 if alone, 5/6/7 depending on combination
-    // So we need custom logic
-    if (CH && PR && LO)
-        RAto = 7;
-    else if (LO && PR)
-        RAto = 6;
-    else if (LO && CH)
-        RAto = 5;
-    else if (PR && CH)
-        RAto = 4;
-    else if (LO)
-        RAto = 3;
-    else if (PR)
-        RAto = 2;
-    else if (CH)
-        RAto = 1;
-    else
-        RAto = 0;
+<form method="post" asp-action="BULKAutoFill">
+    <table width="100%">
+        <tr>
+            <td colspan="8" style="text-align:center" class="clsFormHeader">Queued Accounts for Auto Fill</td>
+        </tr>
+        <tr class="clsFormHeader">
+            <td>Account Num</td>
+            <td>Ref Source</td>
+            <td>Status</td>
+            <td>Assigned Processor</td>
+            <td>Assigned LO</td>
+            <td>Assigned CHLS</td>
+            <td>Date Loaded</td>
+            <td>LMDB ID</td>
+        </tr>
+
+        @for (int i = 0; i < Model.Count; i++)
+        {
+            var css = (i % 2 == 0) ? "clsBlankBoxDark" : "clsBlankBoxLight";
+            <tr class="@css">
+                <td>
+                    @Html.TextBox($"model[{i}].ACCT_NUM", Model[i].ACCT_NUM, new { @class = "form-control" })
+                </td>
+                <td>
+                    @Html.Hidden($"model[{i}].SRC", Model[i].SRC)
+                    @Model[i].SRC
+                </td>
+                <td>
+                    @Html.Hidden($"model[{i}].STAT", Model[i].STAT)
+                    @Model[i].STAT
+                </td>
+                <td>@Model[i].ASSGN_TO_PR</td>
+                <td>@Model[i].ASSN_TO_LO</td>
+                <td>@Model[i].ASSGN_TO_CH</td>
+                <td>@Model[i].Entered.ToShortDateString()</td>
+                <td>
+                    @if (Model[i].LMDB_ID > 0)
+                    {
+                        <a href="@Url.Action("Customer", "LMIDDetails", new { lmid = Model[i].LMDB_ID })">@Model[i].LMDB_ID</a>
+                    }
+                </td>
+            </tr>
+        }
+
+        <tr>
+            <td colspan="8" style="text-align:center" class="clsFormHeader">
+                <button type="submit" name="actionType" value="Begin" class="btn btn-primary">Begin</button>
+                <a asp-controller="Home" asp-action="Home" class="btn btn-secondary">Exit</a>
+                <button type="submit" name="actionType" value="DeleteAll" class="btn btn-danger"
+                        onclick="return confirm('Are you sure you want to delete all?');">Delete All</button>
+            </td>
+        </tr>
+    </table>
+</form>
