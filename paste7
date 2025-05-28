@@ -1,61 +1,43 @@
-@using LossMitigationMVC.Models.AutoFillModels
-@model List<ExcelImportModel>
+<script>
+    $("#beginBtn").click(function () {
+        const rows = $("tr[data-index]");
 
-@{
-    var i = 0;
-}
+        rows.each(function () {
+            const $row = $(this);
+            const index = $row.data("index");
 
-<form method="post" asp-action="BULKAutoFill">
-    <table width="100%">
-        <tr>
-            <td colspan="8" style="text-align:center" class="clsFormHeader">Queued Accounts for Auto Fill</td>
-        </tr>
-        <tr class="clsFormHeader">
-            <td>Account Num</td>
-            <td>Ref Source</td>
-            <td>Status</td>
-            <td>Assigned Processor</td>
-            <td>Assigned LO</td>
-            <td>Assigned CHLS</td>
-            <td>Date Loaded</td>
-            <td>LMDB ID</td>
-        </tr>
+            const model = {
+                ACCT_NUM: $row.find(`input[name='model[${index}].ACCT_NUM']`).val(),
+                SRC: $row.find(`input[name='model[${index}].SRC']`).val(),
+                SOURCE_CODE: $row.find(`input[name='model[${index}].SOURCE_CODE']`).val(),
+                STAT: $row.find(`input[name='model[${index}].STAT']`).val(),
+                STATE_CODE: $row.find(`input[name='model[${index}].STATE_CODE']`).val(),
+                ASSGN_TO_LO: $row.find(`input[name='model[${index}].ASSGN_TO_LO']`).val(),
+                ASSGN_TO_PR: $row.find(`input[name='model[${index}].ASSGN_TO_PR']`).val(),
+                ASSGN_TO_CH: $row.find(`input[name='model[${index}].ASSGN_TO_CH']`).val()
+            };
 
-        @for (int i = 0; i < Model.Count; i++)
-        {
-            var css = (i % 2 == 0) ? "clsBlankBoxDark" : "clsBlankBoxLight";
-            <tr class="@css">
-                <td>
-                    @Html.TextBox($"model[{i}].ACCT_NUM", Model[i].ACCT_NUM, new { @class = "form-control" })
-                </td>
-                <td>
-                    @Html.Hidden($"model[{i}].SRC", Model[i].SRC)
-                    @Model[i].SRC
-                </td>
-                <td>
-                    @Html.Hidden($"model[{i}].STAT", Model[i].STAT)
-                    @Model[i].STAT
-                </td>
-                <td>@Model[i].ASSGN_TO_PR</td>
-                <td>@Model[i].ASSN_TO_LO</td>
-                <td>@Model[i].ASSGN_TO_CH</td>
-                <td>@Model[i].Entered.ToShortDateString()</td>
-                <td>
-                    @if (Model[i].LMDB_ID > 0)
-                    {
-                        <a href="@Url.Action("Customer", "LMIDDetails", new { lmid = Model[i].LMDB_ID })">@Model[i].LMDB_ID</a>
+            // Show spinner or "Processing..."
+            const lmdbCell = $row.find(".lmdb-cell");
+            lmdbCell.text("Processing...");
+
+            $.ajax({
+                url: '@Url.Action("ProcessRow", "AutoFill")',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(model),
+                success: function (res) {
+                    if (res.lmdbId > 0) {
+                        const link = `<a href="/LMIDDetails/Customer?Imid=${res.lmdbId}">${res.lmdbId}</a>`;
+                        lmdbCell.html(link);
+                    } else {
+                        lmdbCell.html("Not created");
                     }
-                </td>
-            </tr>
-        }
-
-        <tr>
-            <td colspan="8" style="text-align:center" class="clsFormHeader">
-                <button type="submit" name="actionType" value="Begin" class="btn btn-primary">Begin</button>
-                <a asp-controller="Home" asp-action="Home" class="btn btn-secondary">Exit</a>
-                <button type="submit" name="actionType" value="DeleteAll" class="btn btn-danger"
-                        onclick="return confirm('Are you sure you want to delete all?');">Delete All</button>
-            </td>
-        </tr>
-    </table>
-</form>
+                },
+                error: function () {
+                    lmdbCell.html("Error");
+                }
+            });
+        });
+    });
+</script>
