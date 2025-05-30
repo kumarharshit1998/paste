@@ -1,3 +1,81 @@
+var parameters = new DynamicParameters();
+parameters.Add("@AcctNum", string.IsNullOrEmpty(model.ACCT_NUM) ? null : model.ACCT_NUM);
+parameters.Add("@UserID", string.IsNullOrEmpty(CurrentUser) ? null : CurrentUser);
+parameters.Add("@SPOC", string.IsNullOrEmpty(model.ASSGN_TO_CH) ? null : model.ASSGN_TO_CH);
+parameters.Add("@LO", string.IsNullOrEmpty(model.ASSGN_TO_LO) ? null : model.ASSGN_TO_LO);
+parameters.Add("@PR", string.IsNullOrEmpty(model.ASSGN_TO_PR) ? null : model.ASSGN_TO_PR);
+parameters.Add("@RefSource", string.IsNullOrEmpty(model.SRC) ? null : model.SOURCE_CODE);
+parameters.Add("@ProspStat", string.IsNullOrEmpty(model.STAT) ? null : model.STAT_CODE);
+
+// Primary Borrower
+parameters.Add("@CustName", string.IsNullOrEmpty(model.CustName) ? null : model.CustName);
+parameters.Add("@Add1", string.IsNullOrEmpty(model.Add1) ? null : model.Add1);
+parameters.Add("@Add2", string.IsNullOrEmpty(model.Add2) ? null : model.Add2);
+parameters.Add("@City", string.IsNullOrEmpty(model.City) ? null : model.City);
+parameters.Add("@ST", string.IsNullOrEmpty(model.ST) ? null : model.ST);
+parameters.Add("@Zip", string.IsNullOrEmpty(model.Zip) ? null : model.Zip);
+parameters.Add("@SSN", string.IsNullOrEmpty(model.SSN) ? null : model.SSN);
+parameters.Add("@HomePhone", string.IsNullOrEmpty(model.HomePhone) ? null : model.HomePhone);
+parameters.Add("@WorkPhone", string.IsNullOrEmpty(model.WorkPhone) ? null : model.WorkPhone);
+
+// Secondary Borrower
+parameters.Add("@CustName_2", string.IsNullOrEmpty(model.CustName_2) ? null : model.CustName_2);
+parameters.Add("@Add1_2", string.IsNullOrEmpty(model.Add1_2) ? null : model.Add1_2);
+parameters.Add("@Add2_2", string.IsNullOrEmpty(model.Add2_2) ? null : model.Add2_2);
+parameters.Add("@City_2", string.IsNullOrEmpty(model.City_2) ? null : model.City_2);
+parameters.Add("@ST_2", string.IsNullOrEmpty(model.ST_2) ? null : model.ST_2);
+parameters.Add("@Zip_2", string.IsNullOrEmpty(model.Zip_2) ? null : model.Zip_2);
+parameters.Add("@SSN_2", string.IsNullOrEmpty(model.SSN_2) ? null : model.SSN_2);
+parameters.Add("@HomePhone_2", string.IsNullOrEmpty(model.HomePhone_2) ? null : model.HomePhone_2);
+parameters.Add("@WorkPhone_2", string.IsNullOrEmpty(model.WorkPhone_2) ? null : model.WorkPhone_2);
+
+// Collateral Data
+parameters.Add("@CollatAdd1", string.IsNullOrEmpty(model.CollatAdd1) ? null : model.CollatAdd1);
+parameters.Add("@CollatAdd2", string.IsNullOrEmpty(model.CollatAdd2) ? null : model.CollatAdd2);
+parameters.Add("@CollatCity", string.IsNullOrEmpty(model.CollatCity) ? null : model.CollatCity);
+parameters.Add("@CollatSt", string.IsNullOrEmpty(model.CollatSt) ? null : model.CollatSt);
+parameters.Add("@CollatZip", string.IsNullOrEmpty(model.CollatZip) ? null : model.CollatZip);
+
+// PEGACDS API
+parameters.Add("@FCLSaleDt", string.IsNullOrEmpty(model.clSaleDt) ? null : model.fcISaledt);
+
+// RetailLoan API Data
+parameters.Add("@AvailBal", string.IsNullOrEmpty(model.AvailAmt) ? null : model.AvailAmt);
+parameters.Add("@AccrStat", string.IsNullOrEmpty(model.AccrStat) ? null : model.AccrStat);
+parameters.Add("@CostCtr", string.IsNullOrEmpty(model.CostCtr) ? null : model.CostCtr);
+parameters.Add("@Approvoff", string.IsNullOrEmpty(model.ApprovOff) ? null : model.ApprovOff);
+parameters.Add("@RelMgr", string.IsNullOrEmpty(model.RelMgr) ? null : model.RelMgr);
+parameters.Add("@CollCode", string.IsNullOrEmpty(model.CollCode) ? null : model.CollCode);
+parameters.Add("@CurrIntRate", string.IsNullOrEmpty(model.CurrIntRate) ? null : model.CurrIntRate);
+parameters.Add("@MatDate", string.IsNullOrEmpty(model.MatDate) ? null : model.MatDate);
+parameters.Add("@LateChargesUNP", string.IsNullOrEmpty(model.LateChargesUNP) ? null : model.LateChargesUNP);
+parameters.Add("@OthrChargesUNP", string.IsNullOrEmpty(model.OthrChargesUNP) ? null : model.OthrChargesUNP);
+parameters.Add("@LineAmt", string.IsNullOrEmpty(model.LineAmt) ? null : model.LineAmt);
+parameters.Add("@LineMargin", string.IsNullOrEmpty(model.LineMargin) ? null : model.LineMargin);
+parameters.Add("@OrigNoteDte", string.IsNullOrEmpty(model.OrigNoteDte) ? null : model.OrigNoteDte);
+parameters.Add("@PayOff", string.IsNullOrEmpty(model.PayOff) ? null : model.PayOff);
+parameters.Add("@CurDueDte", string.IsNullOrEmpty(model.CurrDueDte) ? null : model.CurrDueDte);
+parameters.Add("@CurrPmt", string.IsNullOrEmpty(model.CurrPmt) ? null : model.CurrPmt);
+parameters.Add("@DPD", string.IsNullOrEmpty(model.DPD) ? null : model.DPD);
+parameters.Add("@OrigTerm", string.IsNullOrEmpty(model.OrigTerm) ? null : model.OrigTerm);
+parameters.Add("@PastDue", string.IsNullOrEmpty(model.PastDue) ? null : model.PastDue);
+parameters.Add("@PayDueDte", string.IsNullOrEmpty(model.PayDueDte) ? null : model.PayDueDte);
+parameters.Add("@PaysMadeNum", string.IsNullOrEmpty(model.PaysMadeNum) ? null : model.PaysMadeNum);
+parameters.Add("@ProdCode", string.IsNullOrEmpty(model.ProdCode) ? null : model.ProdCode);
+parameters.Add("@HSTAcctNum", string.IsNullOrEmpty(model.HSTAcctNum) ? null : model.HSTAcctNum);
+parameters.Add("@OrigIntRate", string.IsNullOrEmpty(model.OrigIntRate) ? null : model.OrigIntRate);
+parameters.Add("@OrigMatDate", string.IsNullOrEmpty(model.OrigMatDate) ? null : model.OrigMatDate);
+parameters.Add("@OrigCredScor", string.IsNullOrEmpty(model.OrigCredScor) ? null : model.OrigCredScor);
+parameters.Add("@DPD10", string.IsNullOrEmpty(model.DPD10) ? null : model.DPD10);
+parameters.Add("@DPD30", string.IsNullOrEmpty(model.DPD30) ? null : model.DPD30);
+parameters.Add("@DPD60", string.IsNullOrEmpty(model.DPD60) ? null : model.DPD60);
+parameters.Add("@DPD90", string.IsNullOrEmpty(model.DPD90) ? null : model.DPD90);
+parameters.Add("@ChargeOffAmt", string.IsNullOrEmpty(model.ChargeOffAmt) ? null : model.ChargeOffAmt);
+parameters.Add("@OrigDTI", string.IsNullOrEmpty(model.OrigDTI) ? null : model.OrigDTI);
+parameters.Add("@OrigLTV", string.IsNullOrEmpty(model.OrigLTV) ? null : model.OrigLTV);
+parameters.Add("@OrigPropVal", string.IsNullOrEmpty(model.OrigPropVal) ? null : model.OrigPropVal);
+parameters.Add("@LoanSrcCd", string.IsNullOrEmpty(model.LoanSrcCd) ? null : model.LoanSrcCd);
+parameters.Add("@ApprIType", string.IsNullOrEmpty(apprIType) ? null : apprsiType);
 public async Task<long> InsertSHAWAutoFillRecordforExcelImport(ExcelImportModel model, string currentUser)
 {
     var parameters = new DynamicParameters();
