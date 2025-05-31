@@ -1,11 +1,16 @@
-<a asp-controller="Home" asp-action="MyAction"
-   class="btn @(ViewBag.MyValue == 0 ? "disabled-link" : "")"
-   @(ViewBag.MyValue == 0 ? "tabindex='-1' aria-disabled='true'" : "")>
+@{
+    var isDisabled = ViewBag.MyValue == 0;
+    var linkClass = isDisabled ? "disabled-link" : "btn";
+    var tabIndex = isDisabled ? "-1" : null;
+    var ariaDisabled = isDisabled ? "true" : null;
+}
+<a asp-controller="Home" 
+   asp-action="MyAction"
+   class="@linkClass"
+   tabindex="@tabIndex"
+   aria-disabled="@ariaDisabled">
     My Link
 </a>
-
-
-
 <style>
 .disabled-link {
     pointer-events: none;
