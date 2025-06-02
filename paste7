@@ -1,21 +1,33 @@
-@{
-    var isDisabled = ViewBag.MyValue == 0;
-    var linkClass = isDisabled ? "disabled-link" : "btn";
-    var tabIndex = isDisabled ? "-1" : null;
-    var ariaDisabled = isDisabled ? "true" : null;
+public async Task<List<AccountRow>> GetMatchingAccountsAsync(string cusln)
+{
+    var result = new List<AccountRow>();
+
+    using (var connection = new SqlConnection(_connectionString))
+    {
+        await connection.OpenAsync();
+
+        using (var command = new SqlCommand("GetMatchingAccounts", connection))
+        {
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.AddWithValue("@Cusln", cusln);
+
+            using (var reader = await command.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    var row = new AccountRow
+                    {
+                        Cusln = reader["Cusln"].ToString(),
+                        SomeColumn1 = reader["SomeColumn1"].ToString(),
+                        SomeColumn2 = reader["SomeColumn2"].ToString()
+                        // Map the rest of your columns
+                    };
+
+                    result.Add(row);
+                }
+            }
+        }
+    }
+
+    return result;
 }
-<a asp-controller="Home" 
-   asp-action="MyAction"
-   class="@linkClass"
-   tabindex="@tabIndex"
-   aria-disabled="@ariaDisabled">
-    My Link
-</a>
-<style>
-.disabled-link {
-    pointer-events: none;
-    color: gray;
-    text-decoration: none;
-    cursor: not-allowed;
-}
-</style>
